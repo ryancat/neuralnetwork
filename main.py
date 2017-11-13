@@ -3,10 +3,10 @@ from matplotlib import pyplot
 # import matplotlib
 # import matplotlib.pyplot as plt
 
-t = arange(0, 5, 0.2)
+# t = arange(0, 5, 0.2)
 
-pyplot.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
-pyplot.show()
+# pyplot.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
+# pyplot.show()
 
 class MyNeuralNetworkLayer():
     def __init__ (self, num_of_input, num_of_output):
@@ -17,10 +17,9 @@ class MyNeuralNetworkLayer():
         return dot(inputs, self.synaptic_weights)
 
 class MyNeuralNetwork():
-    def __init__ (self, layer1, layer2):
-        self.layer1 = layer1
-        self.layer2 = layer2
-
+    def __init__ (self, layers):
+        self.layers = layers
+            
     def __sigmoid (self, x):
         return 1 / (1 + exp(-x))
 
@@ -28,72 +27,37 @@ class MyNeuralNetwork():
         return x * (1 - x)
 
     def think (self, inputs):
-        layer1_output = self.__sigmoid(self.layer1.get_weight_sum(inputs))
-        layer2_output = self.__sigmoid(self.layer2.get_weight_sum(layer1_output))
-        return layer1_output, layer2_output
+        for index, layer in enumerate(self.layers):
+            layer.input = self.layers[index - 1].output if index > 0 else inputs
+            layer.output = self.__sigmoid(layer.get_weight_sum(layer.input))
 
     def train (self, train_input, train_output, num_of_iter):
         for i in range(num_of_iter):
-            layer1_output, layer2_output = self.think(train_input)
-            # print 'layer2_output'
-            # print layer2_output
-            # print '--------------------'
-
-            layer2_error = train_output - layer2_output
-            layer2_delta = layer2_error * self.__sigmoid_gradient(layer2_output)
-            # print 'layer2_error'
-            # print layer2_error
-            # print layer2_delta
-            # print '--------------------'
-
-            layer1_error = layer2_delta.dot(self.layer2.synaptic_weights.T)
-            layer1_delta = layer1_error * self.__sigmoid_gradient(layer1_output)
-            
-            # print 'layer1_error'
-            # print layer1_error
-            # print layer1_delta
-            # print '--------------------'
-
-            layer2_adjustment = layer1_output.T.dot(layer2_delta)
-            layer1_adjustment = train_input.T.dot(layer1_delta)
-
-            self.layer1.synaptic_weights += layer1_adjustment
-            self.layer2.synaptic_weights += layer2_adjustment
-
-            # adjustment = dot(
-            #     train_input.T, 
-            #     error * self.__sigmoidGradient(self.__getWeightSum(train_input)))
-            #     # error)
-            # # print 'adjusted error'
-            # # print error * self.__sigmoidGradient(self.__getWeightSum(train_input))
-            # # print error
-            # # # print 'train_input.T'
-            # # # print train_input.T
-            # # print 'adjustment'
-            # # print adjustment
-            # # print '--------------------'
-
-            # self.synaptic_weights += adjustment
-            # # print 'synaptic_weights'
-            # # print self.synaptic_weights
-            # # print '--------------------'
+            self.think(train_input)
+            for index, layer in reversed(list(enumerate(self.layers))):
+                if index == len(self.layers) - 1:
+                    layer.error = train_output - layer.output
+                else:
+                    next_layer = self.layers[index + 1]
+                    layer.error = next_layer.delta.dot(next_layer.synaptic_weights.T)
+                layer.delta = layer.error * self.__sigmoid_gradient(layer.output)
+                layer.adjustment = layer.input.T.dot(layer.delta)
+                layer.synaptic_weights += layer.adjustment
 
 if __name__ == '__main__':
-    neuralNetwork = MyNeuralNetwork(MyNeuralNetworkLayer(3, 4), MyNeuralNetworkLayer(4, 1))
+    # layers = [MyNeuralNetworkLayer(3, 4), MyNeuralNetworkLayer(4, 1)]
+    layers = [MyNeuralNetworkLayer(3, 1)]
+    neuralNetwork = MyNeuralNetwork(layers)
     print 'Random starting synaptic weights: '
-    print neuralNetwork.layer1.synaptic_weights
-    print neuralNetwork.layer2.synaptic_weights
+    for layer in neuralNetwork.layers:
+        print layer.synaptic_weights
 
     train_input = array([
         [ 0,0,1 ],
-        [ 0,1,1 ],
-        [ 1,0,1 ],
-        [ 1,0,0 ],
-        [ 0,1,0 ],
-        [ 1,1,0 ],
         [ 1,1,1 ],
-        [ 0,0,0 ]])
-    train_output = array([[1,0,0,0,0,1,1,1]]).T
+        [ 1,0,1 ],
+        [ 0,1,1 ]])
+    train_output = array([[0, 1, 1, 0]]).T
 
     print 'Train input: '
     print train_input
@@ -101,13 +65,10 @@ if __name__ == '__main__':
     print 'Train output: '
     print train_output
 
-    neuralNetwork.train(train_input, train_output, 60000)
-
-    # print 'New synaptic weights after training: '
-    # print neuralNetwork.synaptic_weights
+    neuralNetwork.train(train_input, train_output, 10000)
 
     print 'Start thinking...'
     test_input = [1, 0, 0]
     print 'Consider new input', test_input
-    layer1_output, layer2_outout = neuralNetwork.think(array(test_input))
-    print layer2_outout
+    neuralNetwork.think(array(test_input))
+    print neuralNetwork.layers[-1].output
